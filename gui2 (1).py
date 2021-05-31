@@ -6,7 +6,8 @@ class Main(tk.Frame):
     def __init__(self, root):
         super().__init__(root)
         self.init_main()
-        self.db = db
+        self.value = 0
+        self.db = DB(self.return_current)
         self.view_records()
 
     def init_main(self):
@@ -38,10 +39,9 @@ class Main(tk.Frame):
                                 compound=tk.TOP, command=self.view_records)
         btn_refresh.pack(side=tk.LEFT)
 
-        self.combobox = ttk.Combobox(self, values=[u"agility_heroes", u"intelligence_heroes", u"power_heroes"])
+        self.combobox = ttk.Combobox(self, values= [u"agility_heroes", u"intelligence_heroes", u"power_heroes"])
         self.combobox.current(0)
-        btn_combobox = ttk.Combobox(self, values=[u"agility_heroes", u"intelligence_heroes", u"power_heroes"])
-        btn_combobox.pack(side=tk.LEFT)
+        self.combobox.pack(side=tk.LEFT)
 
 
         self.tree = ttk.Treeview(self, columns=('ID', 'name1', 'herous'),
@@ -61,25 +61,25 @@ class Main(tk.Frame):
         self.view_records()
 
     def update_record(self, name1, herous):
-        self.db.c.execute('''UPDATE heroes SET name1=?, herous=? WHERE ID=?''',
+        self.db.c.execute('''UPDATE ''' + self.return_current() + ''' SET name1=?, herous=? WHERE ID=?''',
                           (name1, herous, self.tree.set(self.tree.selection()[0], '#1')))
         self.db.conn.commit()
         self.view_records()
 
     def view_records(self):
-        self.db.c.execute('''SELECT * FROM heroes''')
+        self.db.c.execute('''SELECT * FROM ''' + self.return_current())
         [self.tree.delete(i) for i in self.tree.get_children()]
         [self.tree.insert('', 'end', values=row) for row in self.db.c.fetchall()]
 
     def delete_records(self):
         for selection_item in self.tree.selection():
-            self.db.c.execute('''DELETE FROM heroes WHERE id=?''', (self.tree.set(selection_item, '#1'),))
+            self.db.c.execute('''DELETE FROM ''' + self.return_current() + ''' WHERE id=?''', (self.tree.set(selection_item, '#1'),))
         self.db.conn.commit()
         self.view_records()
 
     def search_records(self, name1):
         name1 = ('%' + name1 + '%',)
-        self.db.c.execute('''SELECT * FROM heroes WHERE name1 LIKE ?''', name1)
+        self.db.c.execute('''SELECT * FROM ''' +  self.return_current() + ''' WHERE name1 LIKE ?''', name1)
         [self.tree.delete(i) for i in self.tree.get_children()]
         [self.tree.insert('', 'end', values=row) for row in self.db.c.fetchall()]
 
@@ -91,6 +91,10 @@ class Main(tk.Frame):
 
     def open_search_dialog(self):
         Search()
+    
+    def return_current(self):
+        return self.combobox.get()
+
 
 
 class Child(tk.Toplevel):
@@ -133,7 +137,7 @@ class Update(Child):
             super().__init__()
             self.init_edit()
             self.view = app
-            self.db = db
+            self.db = DB(self.return_current)
             self.default_data()
 
         def init_edit(self):
@@ -147,7 +151,7 @@ class Update(Child):
             self.btn_ok.destroy()
 
         def default_data(self):
-            self.db.c.execute('''SELECT * FROM heroes WHERE id=?''',
+            self.db.c.execute('''SELECT * FROM ''' + str(self.current()) + ''' WHERE id=?''',
                               (self.view.tree.set(self.view.tree.selection()[0], '#1'),))
             row = self.db.c.fetchone()
             self.entry_name1.insert(0, row[1])
@@ -179,21 +183,18 @@ class Search(tk.Toplevel):
         btn_search.bind('<Button-1>', lambda event: self.destroy(), add='+')
 
 class DB:
-    def __init__(self):
-        self.conn = sqlite3.connect('heroes.db')
+    def __init__(self, return_current):
+        self.current = return_current
+        self.conn = sqlite3.connect('hero.db')
         self.c = self.conn.cursor()
-        self.c.execute(
-            '''CREATE TABLE IF NOT EXISTS heroes (id integer primary key, name1 text, herous text)''')
-        self.conn.commit()
 
     def insert_data(self, name1, herous):
-        self.c.execute('''INSERT INTO heroes(name1, herous) VALUES (?, ?)''',
+        self.c.execute('''INSERT INTO ''' + str(self.current()) + '''(name1, herous) VALUES (?, ?)''',
                        (name1, herous))
         self.conn.commit()
 
 if __name__ == "__main__":
     root = tk.Tk()
-    db = DB()
     app = Main(root)
     app.pack()
     root.title("GUI")
